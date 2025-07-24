@@ -83,62 +83,82 @@
 <script>
   let email = '';
   let token = '';
+  const mensagensExibidas = new Set();
 
   async function gerarEmail() {
-    const domainRes = await fetch('https://api.mail.tm/domains');
-    const domains = await domainRes.json();
-    const domain = domains["hydra:member"][0].domain;
+    try {
+      const domainRes = await fetch('https://api.mail.tm/domains');
+      const domains = await domainRes.json();
+      const domain = domains["hydra:member"][0].domain;
 
-    email = `user${Date.now()}@${domain}`;
-    const password = 'senhaForte@123';
+      email = `user${Math.floor(Math.random() * 100000)}@${domain}`;
+      const password = 'SenhaSegura123!';
 
-    // Criar conta
-    const contaRes = await fetch('https://api.mail.tm/accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: email, password })
-    });
+      // Criar conta
+      const contaRes = await fetch('https://api.mail.tm/accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/ld+json'
+        },
+        body: JSON.stringify({ address: email, password })
+      });
 
-    if (!contaRes.ok) {
-      document.getElementById('email').textContent = 'Erro ao criar conta';
-      return;
+      if (!contaRes.ok) {
+        const err = await contaRes.json();
+        document.getElementById('email').textContent = 'Erro: ' + err['hydra:description'];
+        return;
+      }
+
+      // Login
+      const loginRes = await fetch('https://api.mail.tm/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/ld+json'
+        },
+        body: JSON.stringify({ address: email, password })
+      });
+
+      const loginData = await loginRes.json();
+      token = loginData.token;
+
+      document.getElementById('email').textContent = email;
+
+      buscarMensagens(); // primeira vez
+      setInterval(buscarMensagens, 5000); // a cada 5s
+    } catch (err) {
+      document.getElementById('email').textContent = 'Erro ao conectar à API';
     }
-
-    // Login para obter token
-    const loginRes = await fetch('https://api.mail.tm/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: email, password })
-    });
-
-    const loginData = await loginRes.json();
-    token = loginData.token;
-
-    document.getElementById('email').textContent = email;
-
-    buscarMensagens(); // Inicial
-    setInterval(buscarMensagens, 5000); // Atualiza a cada 5 segundos
   }
 
   async function buscarMensagens() {
     const inbox = document.getElementById('inbox');
-    inbox.innerHTML = '';
 
     const msgRes = await fetch('https://api.mail.tm/messages', {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'accept': 'application/ld+json'
+      }
     });
 
     const data = await msgRes.json();
+    const mensagens = data['hydra:member'];
 
-    if (!data['hydra:member'] || data['hydra:member'].length === 0) {
-      inbox.innerHTML = '<li>Sem mensagens recebidas ainda...</li>';
-      return;
-    }
+    if (!mensagens || mensagens.length === 0) return;
 
-    for (const msg of data['hydra:member']) {
+    mensagens.forEach(async (msg) => {
+      if (mensagensExibidas.has(msg.id)) return;
+
+      mensagensExibidas.add(msg.id);
+
       const detalhesRes = await fetch(`https://api.mail.tm/messages/${msg.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'accept': 'application/ld+json'
+        }
       });
+
       const detalhes = await detalhesRes.json();
 
       const li = document.createElement('li');
@@ -147,8 +167,14 @@
         <div class="msg-from">De: ${detalhes.from.address}</div>
         <div class="msg-body">${detalhes.text || '[Sem conteúdo]'}</div>
       `;
-      inbox.appendChild(li);
-    }
+
+      // Remove aviso "sem mensagens"
+      if (inbox.firstChild && inbox.firstChild.textContent.includes('Sem mensagens')) {
+        inbox.innerHTML = '';
+      }
+
+      inbox.prepend(li); // adiciona no topo
+    });
   }
 
   gerarEmail();
