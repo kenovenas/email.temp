@@ -49,6 +49,15 @@
       color: #666;
     }
 
+    .msg-body {
+      margin-top: 8px;
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 0.95em;
+      white-space: pre-wrap;
+    }
+
     footer {
       margin-top: 40px;
       font-size: 0.8em;
@@ -74,7 +83,6 @@
 <script>
   let email = '';
   let token = '';
-  let userId = '';
 
   async function gerarEmail() {
     const domainRes = await fetch('https://api.mail.tm/domains');
@@ -82,7 +90,7 @@
     const domain = domains["hydra:member"][0].domain;
 
     email = `user${Date.now()}@${domain}`;
-    const password = 'senhaFortee123!';
+    const password = 'senhaForte@123';
 
     // Criar conta
     const contaRes = await fetch('https://api.mail.tm/accounts', {
@@ -127,14 +135,20 @@
       return;
     }
 
-    data['hydra:member'].forEach(msg => {
+    for (const msg of data['hydra:member']) {
+      const detalhesRes = await fetch(`https://api.mail.tm/messages/${msg.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const detalhes = await detalhesRes.json();
+
       const li = document.createElement('li');
       li.innerHTML = `
-        <div class="msg-title">${msg.subject || '(Sem Assunto)'}</div>
-        <div class="msg-from">De: ${msg.from.address}</div>
+        <div class="msg-title">${detalhes.subject || '(Sem Assunto)'}</div>
+        <div class="msg-from">De: ${detalhes.from.address}</div>
+        <div class="msg-body">${detalhes.text || '[Sem conteúdo]'}</div>
       `;
       inbox.appendChild(li);
-    });
+    }
   }
 
   gerarEmail();
