@@ -90,7 +90,7 @@
   let token = '';
   const mensagensExibidas = new Set();
 
-  // Converte links em texto para links clicáveis HTML
+  // Converte links de texto em HTML clicável (caso não tenha HTML no e-mail)
   function converterLinks(texto) {
     const urlRegex = /https?:\/\/[^\s]+/g;
     return texto.replace(urlRegex, (url) => {
@@ -136,8 +136,8 @@
 
       document.getElementById('email').textContent = email;
 
-      buscarMensagens();
-      setInterval(buscarMensagens, 5000);
+      buscarMensagens(); // primeira vez
+      setInterval(buscarMensagens, 5000); // verifica a cada 5s
     } catch (err) {
       document.getElementById('email').textContent = 'Erro ao conectar à API';
     }
@@ -173,10 +173,12 @@
       const detalhes = await detalhesRes.json();
 
       const li = document.createElement('li');
+      const corpoMensagem = detalhes.html || converterLinks(detalhes.text || '[Sem conteúdo]');
+
       li.innerHTML = `
         <div class="msg-title">${detalhes.subject || '(Sem Assunto)'}</div>
         <div class="msg-from">De: ${detalhes.from.address}</div>
-        <div class="msg-body">${converterLinks(detalhes.text || '[Sem conteúdo]')}</div>
+        <div class="msg-body">${corpoMensagem}</div>
       `;
 
       if (inbox.firstChild && inbox.firstChild.textContent.includes('Sem mensagens')) {
