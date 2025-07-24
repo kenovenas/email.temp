@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerador de E-mail Temporário</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f3f3;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    .email-box {
+      background: #fff;
+      padding: 15px;
+      border: 2px solid #2196f3;
+      border-radius: 10px;
+      font-size: 1.2em;
+      color: #2196f3;
+      word-break: break-all;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background: white;
+      margin-top: 10px;
+      border-left: 5px solid #4caf50;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .msg-title {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .msg-from {
+      font-size: 0.9em;
+      color: #666;
+    }
+
+    footer {
+      margin-top: 40px;
+      font-size: 0.8em;
+      color: #888;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>📧 Seu E-mail Temporário</h1>
+  <div class="email-box" id="email">Carregando...</div>
+
+  <h2>📥 Caixa de Entrada</h2>
+  <ul id="inbox">
+    <li>Sem mensagens ainda...</li>
+  </ul>
+
+  <footer>
+    Criado por <b>Keno Venas</b> usando <a href="https://mail.tm" target="_blank">mail.tm</a> API gratuita.
+  </footer>
+
+<script>
+  let email = '';
+  let token = '';
+  let userId = '';
+
+  async function gerarEmail() {
+    const domainRes = await fetch('https://api.mail.tm/domains');
+    const domains = await domainRes.json();
+    const domain = domains["hydra:member"][0].domain;
+
+    email = `user${Date.now()}@${domain}`;
+    const password = 'senhaFortee123!';
+
+    // Criar conta
+    const contaRes = await fetch('https://api.mail.tm/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: email, password })
+    });
+
+    if (!contaRes.ok) {
+      document.getElementById('email').textContent = 'Erro ao criar conta';
+      return;
+    }
+
+    // Login para obter token
+    const loginRes = await fetch('https://api.mail.tm/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: email, password })
+    });
+
+    const loginData = await loginRes.json();
+    token = loginData.token;
+
+    document.getElementById('email').textContent = email;
+
+    buscarMensagens(); // Inicial
+    setInterval(buscarMensagens, 5000); // Atualiza a cada 5 segundos
+  }
+
+  async function buscarMensagens() {
+    const inbox = document.getElementById('inbox');
+    inbox.innerHTML = '';
+
+    const msgRes = await fetch('https://api.mail.tm/messages', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await msgRes.json();
+
+    if (!data['hydra:member'] || data['hydra:member'].length === 0) {
+      inbox.innerHTML = '<li>Sem mensagens recebidas ainda...</li>';
+      return;
+    }
+
+    data['hydra:member'].forEach(msg => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="msg-title">${msg.subject || '(Sem Assunto)'}</div>
+        <div class="msg-from">De: ${msg.from.address}</div>
+      `;
+      inbox.appendChild(li);
+    });
+  }
+
+  gerarEmail();
+</script>
+</body>
+</html>
