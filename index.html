@@ -64,6 +64,11 @@
       color: #888;
       text-align: center;
     }
+
+    a {
+      color: #0077cc;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -85,6 +90,14 @@
   let token = '';
   const mensagensExibidas = new Set();
 
+  // Converte links em texto para links clicáveis HTML
+  function converterLinks(texto) {
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    return texto.replace(urlRegex, (url) => {
+      return `<a href="${url}" target="_blank">${url}</a>`;
+    });
+  }
+
   async function gerarEmail() {
     try {
       const domainRes = await fetch('https://api.mail.tm/domains');
@@ -94,7 +107,6 @@
       email = `user${Math.floor(Math.random() * 100000)}@${domain}`;
       const password = 'SenhaSegura123!';
 
-      // Criar conta
       const contaRes = await fetch('https://api.mail.tm/accounts', {
         method: 'POST',
         headers: {
@@ -110,7 +122,6 @@
         return;
       }
 
-      // Login
       const loginRes = await fetch('https://api.mail.tm/token', {
         method: 'POST',
         headers: {
@@ -125,8 +136,8 @@
 
       document.getElementById('email').textContent = email;
 
-      buscarMensagens(); // primeira vez
-      setInterval(buscarMensagens, 5000); // a cada 5s
+      buscarMensagens();
+      setInterval(buscarMensagens, 5000);
     } catch (err) {
       document.getElementById('email').textContent = 'Erro ao conectar à API';
     }
@@ -147,8 +158,8 @@
 
     if (!mensagens || mensagens.length === 0) return;
 
-    mensagens.forEach(async (msg) => {
-      if (mensagensExibidas.has(msg.id)) return;
+    for (const msg of mensagens) {
+      if (mensagensExibidas.has(msg.id)) continue;
 
       mensagensExibidas.add(msg.id);
 
@@ -165,16 +176,15 @@
       li.innerHTML = `
         <div class="msg-title">${detalhes.subject || '(Sem Assunto)'}</div>
         <div class="msg-from">De: ${detalhes.from.address}</div>
-        <div class="msg-body">${detalhes.text || '[Sem conteúdo]'}</div>
+        <div class="msg-body">${converterLinks(detalhes.text || '[Sem conteúdo]')}</div>
       `;
 
-      // Remove aviso "sem mensagens"
       if (inbox.firstChild && inbox.firstChild.textContent.includes('Sem mensagens')) {
         inbox.innerHTML = '';
       }
 
-      inbox.prepend(li); // adiciona no topo
-    });
+      inbox.prepend(li);
+    }
   }
 
   gerarEmail();
